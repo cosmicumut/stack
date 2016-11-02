@@ -1,0 +1,88 @@
+import numpy as np; import matplotlib.pyplot as plt
+import healpy as hp;import math as mt
+import pandas as pd
+import pyfits as pf
+print 'Packages Imported'
+
+#-------------------READING DATA------------------------------------------
+#-------------------------------------------------------------------------
+cmassdr12="CMASS_DR12_ISW_Voids.txt"
+void_id,gl,gb,z,r_eff,theta_eff,delta_g,delta_min,vlambda,edgeflag= np.loadtxt(cmassdr12, skiprows=1, unpack=True)
+print 'CMASS- BOSS DR12 Nadathur Voids Successfully Read, Number of Lines= ',len(void_id)
+
+cmasscl12="CMASS_DR12_ISW_Clusters.txt"
+cluster_id,glcl,gbcl,zcl,r_effcl,theta_effcl,delta_gcl,delta_mincl,vlambdacl,edgeflagcl= np.loadtxt(cmasscl12, skiprows=1, unpack=True)
+print 'CMASS- BOSS DR12 Nadathur Superclusters Successfully Read, Number of Lines= ',len(cluster_id)
+
+pllens= hp.read_map('Planck_CMBlensing_nside512.fits')   
+print 'Planck CMB Lensing Map Nside=512 Successfully Read'
+
+pltemp= hp.read_map('Planck_CMBtemp_nside512.fits')
+print 'Planck CMB Temperature Map Nside=512 Successfully Read'
+
+mask_area=hp.read_map('wmap_temperature_kq75_analysis_mask_r9_9yr_v5.fits')
+mask_area = mask_area>0
+#hp.mollview(mask_area,title="Planck Temperature 512 Mask")
+hp.mollview(pllens, title="Planck CMB Lensing(Kappa) 512 Map",min=np.min(pllens),max=-np.min(pllens))
+hp.mollview(pltemp, title="Planck CMB Temperature 512 Map",min=np.min(pltemp),max=-np.min(pltemp))
+
+#-------------------Stacking Parameters--------------------------------------------------------------
+#-------------------BINNING OF THE VOIDS-------------------------------------------------------------
+#----------------------------------------------------------------------------------------------------
+bin1=np.where((vlambda < -31) & (vlambda > -1000));print np.size(bin1), 'Size of Bin1'
+bin2=np.where((vlambda < -26) & (vlambda > -31));print np.size(bin2), 'Size of Bin2'
+bin3=np.where((vlambda < -23) & (vlambda > -26));print np.size(bin3), 'Size of Bin3'
+bin4=np.where((vlambda < -19) & (vlambda > -23));print np.size(bin4), 'Size of Bin4'
+bin5=np.where((vlambda < -14) & (vlambda > -19));print np.size(bin5), 'Size of Bin5'
+bin6=np.where((vlambda < -10) & (vlambda > -14));print np.size(bin6), 'Size of Bin6'
+bin7=np.where((vlambda < -5) & (vlambda > -10));print np.size(bin7), 'Size of Bin7'
+bin8=np.where((vlambda < 0) & (vlambda > -5));print np.size(bin8), 'Size of Bin8'
+bins=[]                                           #Creating an array of the bins 
+bins=[bin1,bin2,bin3,bin4,bin5,bin6,bin7,bin8]    #The super array of the bins selected
+#----------------------------------------------------------------------------------------------
+nradius=3                              #Stacked Image Size in terms of Void Radius
+Box_size=300                           #Box size  of the stacked Image in pixels
+m=pllens                               #CMB Map to be Stacked KAPPA or TEMPERATURE 
+goodvoids=bins[2]                      #Determines which bin of voids to stack 
+#----------------------------------------------------------------------------------------------
+
+
+void_angular_size=theta_eff[goodvoids]       #Void Radius in Degrees
+gl=gl[goodvoids]                             #Galactic l of the Selected Voids in Degrees
+gb=gb[goodvoids]                            #Galactic b of the Selected Voids in Degrees
+#print len(gl)
+plt.show()                                  #Showing the CMB Temp and Kappa Maps from the previous Cell
+
+
+#------STACKING PROCEDURE--------------------
+#------------------------------------------
+wholeimg = np.array([ np.array([ 0. for i in range(Box_size)]) for j in range(Box_size) ]) #Stacked Image
+plt.figure()
+for i in range(len(gl)):
+        # This is the resolution of the image
+        print void_angular_size[i],'Void Angular Radius(degree)'
+        res = (2*nradius) * ((void_angular_size[i])*60) / Box_size  #Resolution of each patched centered around the void 
+wholeimg += hp.gnomview(m,min=np.min(m),max=-np.min(m), fig=1,rot=(gl[i],gb[i]),return_projected_map=True, reso=res, xsize=Box_size)
+print (float(i)/len(gl))*100,'% Left'
+wholeimg= wholeimg/len(gl)           #Final Stacked Image
+
+x=Box_size/2.0                       # X of the Center of the Image
+y=Box_size/2.0                       # Y of the Center of the Image
+rad=Box_size/ (nradius*2.0)          #Radius of the Void Stacked in Pixels
+fig=plt.figure()
+circle=plt.Circle((x,y),radius=rad,color='black',lw=0.95,linestyle='solid',alpha=0.85,fill=False) #Plotting Circle for Void Radius
+ax=fig.add_subplot(1,1,1)
+ax.add_patch(circle)
+#ax.set_xlabel('$R/R_v$',fontsize=16)
+ax.set_xlabel('Void Radius($Rv$)',fontsize=16)
+ax.set_ylabel('Void Radius($Rv$)',fontsize=16)
+ax.set_title('N= '+str(len(gl))+' Stacked Nadathur Voids CMB Lensing Bin8')
+ax.set_xticks([0,50,100,150,200,250,300])
+ax.set_yticks([0,50,100,150,200,250,300])
+ax.set_xticklabels([3,2,1,0,1,2,3],fontsize=12)
+ax.set_yticklabels([3,2,1,0,1,2,3],fontsize=12)
+
+plt.imshow(wholeimg)
+#plt.imshow(wholeimg) #Stacked Image of Kappa 
+plt.colorbar()
+plt.show()
